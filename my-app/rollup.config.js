@@ -7,8 +7,13 @@ import { terser } from 'rollup-plugin-terser';
 import config from 'sapper/config/rollup.js';
 import pkg from './package.json';
 
+import typescript from "@rollup/plugin-typescript";
+import sveltePreprocess from "svelte-preprocess";
+import json from "@rollup/plugin-json";
+
 const mode = process.env.NODE_ENV;
 const dev = mode === 'development';
+const sourcemap = dev ? "inline" : false;
 const legacy = !!process.env.SAPPER_LEGACY_BUILD;
 
 const onwarn = (warning, onwarn) =>
@@ -18,7 +23,7 @@ const onwarn = (warning, onwarn) =>
 
 export default {
 	client: {
-		input: config.client.input(),
+		input: config.client.input().replace(/\.js$/, ".ts"),
 		output: config.client.output(),
 		plugins: [
 			replace({
@@ -28,13 +33,16 @@ export default {
 			svelte({
 				dev,
 				hydratable: true,
-				emitCss: true
+				emitCss: true,
+				preprocess: sveltePreprocess()
 			}),
 			resolve({
 				browser: true,
 				dedupe: ['svelte']
 			}),
 			commonjs(),
+			typescript({ sourceMap: !!sourcemap }),
+			json(),
 
 			legacy && babel({
 				extensions: ['.js', '.mjs', '.html', '.svelte'],
@@ -63,22 +71,26 @@ export default {
 	},
 
 	server: {
-		input: config.server.input(),
-		output: config.server.output(),
+		input: { server: config.server.input().server.replace(/\.js$/, ".ts") },
+		output: { ...config.server.output(), sourcemap },
 		plugins: [
 			replace({
 				'process.browser': false,
-				'process.env.NODE_ENV': JSON.stringify(mode)
+				'process.env.NODE_ENV': JSON.stringify(mode),
+				"module.require": "require",
 			}),
 			svelte({
 				generate: 'ssr',
 				hydratable: true,
-				dev
+				dev,
+				preprocess: sveltePreprocess()
 			}),
 			resolve({
 				dedupe: ['svelte']
 			}),
-			commonjs()
+			commonjs(),
+			typescript({ sourceMap: !!sourcemap }),
+			json(),
 		],
 		external: Object.keys(pkg.dependencies).concat(require('module').builtinModules),
 
@@ -87,7 +99,7 @@ export default {
 	},
 
 	serviceworker: {
-		input: config.serviceworker.input(),
+		input: config.serviceworker.input().replace(/\.js$/, ".ts"),
 		output: config.serviceworker.output(),
 		plugins: [
 			resolve(),
@@ -96,6 +108,7 @@ export default {
 				'process.env.NODE_ENV': JSON.stringify(mode)
 			}),
 			commonjs(),
+			typescript({ sourceMap: !!sourcemap }),
 			!dev && terser()
 		],
 

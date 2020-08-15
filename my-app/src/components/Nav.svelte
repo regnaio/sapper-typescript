@@ -1,5 +1,17 @@
-<script>
-	export let segment;
+<script lang="ts">
+  import { onMount } from "svelte";
+
+	import { Hi } from "./Hi";
+	
+	export let segment: string;
+
+	onMount(async () => {
+		const { Hi } = await import('./Hi');
+		
+		new Hi();
+	});
+	
+	new Hi();
 </script>
 
 <style>
